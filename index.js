@@ -2,12 +2,12 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const express = require('express');
 
-// --- CẤU HÌNH WEB SERVER CHỐNG NGỦ (BẮT BUỘC CHO RENDER) ---
+// --- CẤU HÌNH WEB SERVER CHỐNG NGỦ ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('Bot TikTok is running 24/7!');
+    res.send('Bot Multi-Downloader is running 24/7!');
 });
 
 app.listen(PORT, () => {
@@ -24,15 +24,20 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 
+// API Cũ (Giữ lại cho tra cứu TikTok)
 const TIKTOK_USER_API = 'https://www.tikwm.com/api/user/info';
-const TIKTOK_VIDEO_API = 'https://www.tikwm.com/api/';
 
-// Lệnh /tt: Tra cứu thông tin người dùng
+// API Mới (Cho tải đa nền tảng)
+const MULTI_API = 'https://api.vkrhost.com/api/download?url=';
+
+// ==========================================
+// LỆNH /tt: GIỮ NGUYÊN TRA CỨU TIKTOK
+// ==========================================
 bot.onText(/\/tt (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const username = match[1].replace('@', '').trim();
 
-    bot.sendMessage(chatId, `🔍 Đang tra cứu người dùng: @${username}...`);
+    bot.sendMessage(chatId, `🔍 Đang tra cứu người dùng TikTok: @${username}...`);
 
     try {
         const res = await axios.get(TIKTOK_USER_API, { params: { unique_id: username } });
@@ -57,29 +62,38 @@ bot.onText(/\/tt (.+)/, async (msg, match) => {
             bot.sendMessage(chatId, "❌ Không tìm thấy người dùng này.");
         }
     } catch (error) {
-        bot.sendMessage(chatId, "⚠️ Lỗi kết nối API.");
+        bot.sendMessage(chatId, "⚠️ Lỗi kết nối API tra cứu.");
     }
 });
 
-// Lệnh /dl: Tải video không logo
+// ==========================================
+// LỆNH /dl: NÂNG CẤP TẢI ĐA NỀN TẢNG
+// ==========================================
 bot.onText(/\/dl (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const url = match[1].trim();
 
-    bot.sendMessage(chatId, "⏳ Đang lấy video không logo...");
+    bot.sendMessage(chatId, "⏳ Đang phân tích link (TikTok, FB, YT, IG...)...");
 
     try {
-        const res = await axios.get(TIKTOK_VIDEO_API, { params: { url: url } });
-        const videoData = res.data.data;
+        // Gọi API đa năng mới
+        const res = await axios.get(`${MULTI_API}${encodeURIComponent(url)}`);
+        const result = res.data;
 
-        if (videoData && videoData.play) {
-            bot.sendVideo(chatId, videoData.play, { caption: "✅ Video sạch của bạn đây!" });
+        // Lấy link video từ kết quả trả về
+        const videoUrl = result.data?.url || result.data?.download || result.url;
+
+        if (videoUrl) {
+            bot.sendVideo(chatId, videoUrl, { 
+                caption: `✅ Tải thành công!\n🌐 Nguồn: ${new URL(url).hostname}`,
+                reply_to_message_id: msg.message_id 
+            });
         } else {
-            bot.sendMessage(chatId, "❌ Link không hợp lệ hoặc lỗi API.");
+            bot.sendMessage(chatId, "❌ Không tìm thấy video hoặc nền tảng này chưa được hỗ trợ.");
         }
     } catch (error) {
-        bot.sendMessage(chatId, "⚠️ Lỗi hệ thống khi tải video.");
+        bot.sendMessage(chatId, "⚠️ Lỗi: Link không hợp lệ hoặc API đang bảo trì.");
     }
 });
 
-console.log("Bot đã sẵn sàng!");
+console.log("Bot đa năng + Tra cứu TikTok đã sẵn sàng!");
