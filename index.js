@@ -1,7 +1,26 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
+const express = require('express');
 
-const token = process.env.TELEGRAM_TOKEN;
+// --- CẤU HÌNH WEB SERVER CHỐNG NGỦ (BẮT BUỘC CHO RENDER) ---
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('Bot TikTok is running 24/7!');
+});
+
+app.listen(PORT, () => {
+    console.log(`Server đang lắng nghe tại port ${PORT}`);
+});
+
+// --- LẤY TOKEN TỪ ENVIRONMENT VARIABLES ---
+const token = process.env.TELEGRAM_TOKEN; 
+
+if (!token) {
+    console.error("LỖI: Chưa cấu hình TELEGRAM_TOKEN trong Environment Variables!");
+    process.exit(1);
+}
 
 const bot = new TelegramBot(token, { polling: true });
 
@@ -11,7 +30,7 @@ const TIKTOK_VIDEO_API = 'https://www.tikwm.com/api/';
 // Lệnh /tt: Tra cứu thông tin người dùng
 bot.onText(/\/tt (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const username = match[1].replace('@', ''); // Loại bỏ ký tự @ nếu người dùng nhập vào
+    const username = match[1].replace('@', '').trim();
 
     bot.sendMessage(chatId, `🔍 Đang tra cứu người dùng: @${username}...`);
 
@@ -25,7 +44,6 @@ bot.onText(/\/tt (.+)/, async (msg, match) => {
 ━━━━━━━━━━━━━━━━━━
 📛 **Tên:** ${data.user.nickname} (@${data.user.uniqueId})
 📝 **Tiểu sử:** ${data.user.signature || 'Trống'}
-✅ **Xác minh:** ${data.user.verified ? 'Rồi' : 'Chưa'}
 📊 **Thống kê:**
 🔹 **Followers:** ${data.stats.followerCount.toLocaleString()}
 🔹 **Following:** ${data.stats.followingCount.toLocaleString()}
@@ -39,14 +57,14 @@ bot.onText(/\/tt (.+)/, async (msg, match) => {
             bot.sendMessage(chatId, "❌ Không tìm thấy người dùng này.");
         }
     } catch (error) {
-        bot.sendMessage(chatId, "⚠️ Có lỗi xảy ra khi kết nối API.");
+        bot.sendMessage(chatId, "⚠️ Lỗi kết nối API.");
     }
 });
 
-// Lệnh /dl: Vẫn giữ nguyên để tải video không logo
+// Lệnh /dl: Tải video không logo
 bot.onText(/\/dl (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const url = match[1];
+    const url = match[1].trim();
 
     bot.sendMessage(chatId, "⏳ Đang lấy video không logo...");
 
@@ -55,19 +73,13 @@ bot.onText(/\/dl (.+)/, async (msg, match) => {
         const videoData = res.data.data;
 
         if (videoData && videoData.play) {
-            bot.sendVideo(chatId, videoData.play, { caption: "✅ Video không logo của bạn đây!" });
+            bot.sendVideo(chatId, videoData.play, { caption: "✅ Video sạch của bạn đây!" });
         } else {
-            bot.sendMessage(chatId, "❌ Link video không hợp lệ hoặc lỗi API.");
+            bot.sendMessage(chatId, "❌ Link không hợp lệ hoặc lỗi API.");
         }
     } catch (error) {
         bot.sendMessage(chatId, "⚠️ Lỗi hệ thống khi tải video.");
     }
 });
 
-console.log("Bot đã sẵn sàng tra cứu và tải video!");
-    } catch (error) {
-        bot.sendMessage(chatId, "⚠️ Lỗi hệ thống khi tải video.");
-    }
-});
-
-console.log("Bot đã sẵn sàng và đang chạy ngầm!");
+console.log("Bot đã sẵn sàng!");
