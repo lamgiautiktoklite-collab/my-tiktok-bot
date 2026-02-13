@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
-const token = '8393417907:AAHTw-GXnEXZg5-SXglOE21_ld8YslBk4bY';
+const token = 'BOT_TOKEN';
 const bot = new TelegramBot(token, { polling: true });
 
 const TIKTOK_USER_API = 'https://www.tikwm.com/api/user/info';
