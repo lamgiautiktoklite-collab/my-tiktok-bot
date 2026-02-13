@@ -1,8 +1,21 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
+const express = require('express'); // Thêm express
+
+// --- CẤU HÌNH WEB SERVER CHỐNG NGỦ ---
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('Bot TikTok is running 24/7!');
+});
+
+app.listen(PORT, () => {
+    console.log(`Web Server đang chạy trên port ${PORT}`);
+});
+// ------------------------------------
 
 const token = process.env.TELEGRAM_TOKEN;
-
 const bot = new TelegramBot(token, { polling: true });
 
 const TIKTOK_USER_API = 'https://www.tikwm.com/api/user/info';
@@ -11,7 +24,7 @@ const TIKTOK_VIDEO_API = 'https://www.tikwm.com/api/';
 // Lệnh /tt: Tra cứu thông tin người dùng
 bot.onText(/\/tt (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const username = match[1].replace('@', ''); // Loại bỏ ký tự @ nếu người dùng nhập vào
+    const username = match[1].replace('@', '').trim();
 
     bot.sendMessage(chatId, `🔍 Đang tra cứu người dùng: @${username}...`);
 
@@ -43,10 +56,10 @@ bot.onText(/\/tt (.+)/, async (msg, match) => {
     }
 });
 
-// Lệnh /dl: Vẫn giữ nguyên để tải video không logo
+// Lệnh /dl: Tải video không logo
 bot.onText(/\/dl (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const url = match[1];
+    const url = match[1].trim();
 
     bot.sendMessage(chatId, "⏳ Đang lấy video không logo...");
 
@@ -64,4 +77,4 @@ bot.onText(/\/dl (.+)/, async (msg, match) => {
     }
 });
 
-console.log("Bot đã sẵn sàng tra cứu và tải video!");
+console.log("Bot đã sẵn sàng và đang chạy ngầm!");
