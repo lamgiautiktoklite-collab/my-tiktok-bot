@@ -9,7 +9,7 @@ app.listen(process.env.PORT || 3000);
 const token = process.env.TELEGRAM_TOKEN; 
 const bot = new TelegramBot(token, { polling: { interval: 1000, autoStart: true } });
 
-const SIGNATURE = "\n\n[『 ᴍᴀᴋᴇ ʙʏ: ᴄᴏɴ ʙᴏ̀ (@ᴄʜᴜ𝟸ɴᴇᴄᴏɴ) 』](https://t.me/chu2necon)";
+const SIGNATURE = "\n\n[『 ᴍᴀᴋᴇ ʙʏ: ᴄᴏɴ ʙᴏ̀ (@ᴄʜᴜ𝟸ɴᴇᴄᴏɴ) 』](https://tiktok.com/@chu2necon)";
 
 const formatNumber = (num) => {
     if (!num) return "0";
