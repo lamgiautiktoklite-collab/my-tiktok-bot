@@ -2,17 +2,16 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const express = require('express');
 
-// --- 1. WEB SERVER CHO CRONJOB.ORG ---
+// --- WEB SERVER CHO CRONJOB.ORG ---
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Bot đang chạy 24/7 cho CronJob.org!'));
+app.get('/', (req, res) => res.send('Bot Live!'));
 app.listen(PORT, () => console.log(`Cổng ${PORT} đã mở.`));
 
-// --- 2. CẤU HÌNH BOT ---
 const token = process.env.TELEGRAM_TOKEN; 
 const bot = new TelegramBot(token, { polling: { interval: 1000, autoStart: true } });
 
-// CHỮ KÝ DẪN THẲNG VỀ TIKTOK CỦA BẠN
+// CHỮ KÝ CỦA BẠN
 const SIGNATURE = "\n\n[『 ᴍᴀᴋᴇ ʙʏ: ᴄᴏɴ ʙᴏ̀ (@ᴄʜᴜ𝟸ɴᴇᴄᴏɴ) 』](https://www.tiktok.com/@chu2necon)";
 
 const formatNumber = (num) => {
@@ -21,15 +20,11 @@ const formatNumber = (num) => {
 };
 
 bot.onText(/\/start/, (msg) => {
-    // Đã sửa mô tả lệnh /dl tại đây
     const helpText = `⚡ /tt ‐ Thông Tin TikTok\n📥 /dl - Tải Video TikTok Không Logo${SIGNATURE}`;
-    bot.sendMessage(msg.chat.id, helpText, { 
-        parse_mode: 'Markdown', 
-        disable_web_page_preview: true 
-    });
+    bot.sendMessage(msg.chat.id, helpText, { parse_mode: 'Markdown', disable_web_page_preview: true });
 });
 
-// --- 3. LỆNH /tt (TRA CỨU) ---
+// --- LỆNH /tt (TRA CỨU) ---
 bot.onText(/\/tt (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const username = match[1].replace('@', '').trim();
@@ -53,20 +48,15 @@ bot.onText(/\/tt (.+)/, async (msg, match) => {
                 `👥 **Bạn bè:** ${formatNumber(stats.friendCount)}` +
                 `${SIGNATURE}`;
 
-            await bot.sendPhoto(chatId, user.avatarLarger, { 
-                caption: caption, 
-                parse_mode: 'Markdown' 
-            });
+            await bot.sendPhoto(chatId, user.avatarLarger, { caption: caption, parse_mode: 'Markdown' });
         }
     } catch (e) {
-        bot.sendMessage(chatId, `⚠️ Không tìm thấy người dùng.${SIGNATURE}`, { 
-            parse_mode: 'Markdown', 
-            disable_web_page_preview: true 
-        });
+        console.log(e);
+        bot.sendMessage(chatId, `⚠️ Không tìm thấy người dùng.${SIGNATURE}`, { parse_mode: 'Markdown', disable_web_page_preview: true });
     }
 });
 
-// --- 4. HÀM TẢI VIDEO (ƯU TIÊN KHÔNG LOGO) ---
+// --- HÀM TẢI VIDEO ---
 const downloadVideo = async (chatId, url, messageId) => {
     const waitingMsg = await bot.sendMessage(chatId, "🚀 Đang lấy video không logo...");
     try {
@@ -74,8 +64,25 @@ const downloadVideo = async (chatId, url, messageId) => {
         const videoUrl = res.data.data?.play || res.data.data?.wmplay;
 
         if (videoUrl) {
-            await bot.sendVideo(chatId, videoUrl, { 
-                caption: `✅ Tải thành công!`, 
+            await bot.sendVideo(chatId, videoUrl, { caption: `✅ Tải thành công!`, reply_to_message_id: messageId });
+            await bot.deleteMessage(chatId, waitingMsg.message_id).catch(() => {});
+        } else {
+            throw new Error();
+        }
+    } catch (e) {
+        bot.editMessageText(`❌ Lỗi API hoặc link không hợp lệ.`, { chat_id: chatId, message_id: waitingMsg.message_id });
+    }
+};
+
+bot.onText(/\/dl (.+)/, async (msg, match) => {
+    await downloadVideo(msg.chat.id, match[1].trim(), msg.message_id);
+});
+
+bot.on('message', async (msg) => {
+    if (!msg.text || msg.text.startsWith('/')) return;
+    const match = msg.text.match(/(https?:\/\/[^\s]+)/g);
+    if (match) await downloadVideo(msg.chat.id, match[0], msg.message_id);
+});
                 reply_to_message_id: messageId 
             });
             await bot.deleteMessage(chatId, waitingMsg.message_id).catch(() => {});
