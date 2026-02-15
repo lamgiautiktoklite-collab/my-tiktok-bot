@@ -2,14 +2,18 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const express = require('express');
 
+// --- 1. WEB SERVER CHO CRONJOB.ORG ---
 const app = express();
-app.get('/', (req, res) => res.send('Bot Đa Nền Tảng Live!'));
-app.listen(process.env.PORT || 3000);
+const PORT = process.env.PORT || 3000;
+app.get('/', (req, res) => res.send('Bot đang chạy 24/7 cho CronJob.org!'));
+app.listen(PORT, () => console.log(`Cổng ${PORT} đã mở.`));
 
+// --- 2. CẤU HÌNH BOT ---
 const token = process.env.TELEGRAM_TOKEN; 
 const bot = new TelegramBot(token, { polling: { interval: 1000, autoStart: true } });
 
-const SIGNATURE = "\n\n[『 ᴍᴀᴋᴇ ʙʏ: ᴄᴏɴ ʙᴏ̀ (@ᴄʜᴜ𝟸ɴᴇᴄᴏɴ) 』](https://tiktok.com/@chu2necon)";
+// CHỮ KÝ DẪN THẲNG VỀ TIKTOK CỦA BẠN
+const SIGNATURE = "\n\n[『 ᴍᴀᴋᴇ ʙʏ: ᴄᴏɴ ʙᴏ̀ (@ᴄʜᴜ𝟸ɴᴇᴄᴏɴ) 』](https://www.tiktok.com/@chu2necon)";
 
 const formatNumber = (num) => {
     if (!num) return "0";
@@ -17,18 +21,57 @@ const formatNumber = (num) => {
 };
 
 bot.onText(/\/start/, (msg) => {
-    const helpText = `⚡ /tt ‐ Thông Tin TikTok\n📥 /dl - Tải Video Đa Nền Tảng${SIGNATURE}`;
-    bot.sendMessage(msg.chat.id, helpText, { parse_mode: 'Markdown', disable_web_page_preview: true });
+    // Đã sửa mô tả lệnh /dl tại đây
+    const helpText = `⚡ /tt ‐ Thông Tin TikTok\n📥 /dl - Tải Video TikTok Không Logo${SIGNATURE}`;
+    bot.sendMessage(msg.chat.id, helpText, { 
+        parse_mode: 'Markdown', 
+        disable_web_page_preview: true 
+    });
 });
 
-// --- HÀM TẢI VIDEO MỚI (DÙNG TIKWM VÀ FALLBACK) ---
-const downloadVideo = async (chatId, url, messageId) => {
-    const waitingMsg = await bot.sendMessage(chatId, "🚀 Đang xử lý link...");
+// --- 3. LỆNH /tt (TRA CỨU) ---
+bot.onText(/\/tt (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const username = match[1].replace('@', '').trim();
     try {
-        // Ưu tiên Tikwm vì nó rất mạnh cho cả TT và Douyin
-        const res = await axios.get(`https://www.tikwm.com/api/`, { params: { url: url } });
+        const res = await axios.get(`https://www.tikwm.com/api/user/info`, { params: { unique_id: username } });
         const data = res.data.data;
-        const videoUrl = data?.play || data?.wmplay || data?.hdplay;
+        if (data) {
+            const { user, stats } = data;
+            const region = user.region || data.region || "VN";
+
+            const caption = `👤 **THÔNG TIN TIKTOK**\n` +
+                `─────────────────────────────\n` +
+                `📛 **Tên:** ${user.nickname}\n` +
+                `🆔 **ID:** \`${user.uniqueId}\`\n` +
+                `📝 **Bio:** ${user.signature || "Trống"}\n` +
+                `📍 **Vùng:** ${region}\n` +
+                `📈 **Followers:** ${formatNumber(stats.followerCount)}\n` +
+                `📉 **Following:** ${formatNumber(stats.followingCount)}\n` +
+                `❤️ **Lượt Tim:** ${formatNumber(stats.heartCount)}\n` +
+                `🎬 **Video:** ${formatNumber(stats.videoCount)}\n` +
+                `👥 **Bạn bè:** ${formatNumber(stats.friendCount)}` +
+                `${SIGNATURE}`;
+
+            await bot.sendPhoto(chatId, user.avatarLarger, { 
+                caption: caption, 
+                parse_mode: 'Markdown' 
+            });
+        }
+    } catch (e) {
+        bot.sendMessage(chatId, `⚠️ Không tìm thấy người dùng.${SIGNATURE}`, { 
+            parse_mode: 'Markdown', 
+            disable_web_page_preview: true 
+        });
+    }
+});
+
+// --- 4. HÀM TẢI VIDEO (ƯU TIÊN KHÔNG LOGO) ---
+const downloadVideo = async (chatId, url, messageId) => {
+    const waitingMsg = await bot.sendMessage(chatId, "🚀 Đang lấy video không logo...");
+    try {
+        const res = await axios.get(`https://www.tikwm.com/api/`, { params: { url: url } });
+        const videoUrl = res.data.data?.play || res.data.data?.wmplay;
 
         if (videoUrl) {
             await bot.sendVideo(chatId, videoUrl, { 
@@ -37,10 +80,19 @@ const downloadVideo = async (chatId, url, messageId) => {
             });
             await bot.deleteMessage(chatId, waitingMsg.message_id).catch(() => {});
         } else {
-            throw new Error("API không trả về link");
+            // Dự phòng API khác nếu link TikTok gặp vấn đề
+            const resMulti = await axios.get(`https://api.vkrhost.com/api/download?url=${encodeURIComponent(url)}`);
+            const vUrl = resMulti.data.data?.url || resMulti.data.url;
+            if (vUrl) {
+                await bot.sendVideo(chatId, vUrl, { 
+                    caption: `✅ Tải thành công!`, 
+                    reply_to_message_id: messageId 
+                });
+                await bot.deleteMessage(chatId, waitingMsg.message_id).catch(() => {});
+            } else { throw new Error(); }
         }
     } catch (e) {
-        await bot.editMessageText(`❌ API hiện tại đang bảo trì. Vui lòng thử lại sau vài phút!`, { 
+        bot.editMessageText(`❌ Lỗi: Link không hợp lệ hoặc API bảo trì.`, { 
             chat_id: chatId, 
             message_id: waitingMsg.message_id 
         });
@@ -56,22 +108,6 @@ bot.on('message', async (msg) => {
     const match = msg.text.match(/(https?:\/\/[^\s]+)/g);
     if (match) await downloadVideo(msg.chat.id, match[0], msg.message_id);
 });
-
-// --- LỆNH /tt (FIX TRIỆT ĐỂ LỖI VÙNG) ---
-bot.onText(/\/tt (.+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const username = match[1].replace('@', '').trim();
-    try {
-        const res = await axios.get(`https://www.tikwm.com/api/user/info`, { params: { unique_id: username } });
-        const data = res.data.data;
-        if (data) {
-            const { user, stats } = data;
-            // Kiểm tra region ở nhiều cấp độ để tránh undefined
-            const region = user.region || data.region || "Quốc tế";
-
-            const caption = `👤 **THÔNG TIN TIKTOK**\n` +
-                `─────────────────────────────\n` +
-                `📛 **Tên:** ${user.nickname}\n` +
                 `🆔 **ID:** \`${user.uniqueId}\`\n` +
                 `📝 **Bio:** ${user.signature || "Trống"}\n` +
                 `📍 **Vùng:** ${region}\n` +
