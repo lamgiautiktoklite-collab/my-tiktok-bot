@@ -28,14 +28,16 @@ bot.onText(/\/start/, (msg) => {
     });
 });
 
-// --- 4. LỆNH /TT (TRA CỨU) ---
+// --- 4. LỆNH /TT (TRA CỨU ĐÃ FIX LỖI) ---
 bot.onText(/\/tt (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const username = match[1].replace('@', '').trim();
+    const loading = await bot.sendMessage(chatId, `🔍 Đang tra cứu @${username}...`);
+
     try {
         const res = await axios.get(`https://www.tikwm.com/api/user/info`, { params: { unique_id: username } });
         const data = res.data.data;
-        if (data) {
+        if (data && data.user) {
             const { user, stats } = data;
             const region = user.region || data.region || "VN";
             const caption = `👤 **THÔNG TIN TIKTOK**\n` +
@@ -50,16 +52,22 @@ bot.onText(/\/tt (.+)/, async (msg, match) => {
                 `🎬 **Video:** ${formatNumber(stats.videoCount)}\n` +
                 `👥 **Bạn bè:** ${formatNumber(stats.friendCount)}` +
                 `${SIGNATURE}`;
-            await bot.sendPhoto(chatId, user.avatarLarger, { caption: caption, parse_mode: 'Markdown' });
+            
+            try {
+                await bot.sendPhoto(chatId, user.avatarLarger || user.avatarThumb, { caption: caption, parse_mode: 'Markdown' });
+            } catch (err) {
+                await bot.sendMessage(chatId, caption, { parse_mode: 'Markdown' });
+            }
+            await bot.deleteMessage(chatId, loading.message_id).catch(() => {});
         } else {
-            bot.sendMessage(chatId, "❌ Không tìm thấy người dùng này.");
+            bot.editMessageText(`❌ Không tìm thấy @${username}`, { chat_id: chatId, message_id: loading.message_id });
         }
     } catch (e) {
-        bot.sendMessage(chatId, `⚠️ Lỗi hệ thống khi tra cứu.${SIGNATURE}`, { parse_mode: 'Markdown' });
+        bot.editMessageText(`⚠️ Lỗi hệ thống khi tra cứu.`, { chat_id: chatId, message_id: loading.message_id });
     }
 });
 
-// --- 5. HÀM TẢI VIDEO ---
+// --- 5. LỆNH /DL (TẢI VIDEO TIKTOK KHÔNG LOGO) ---
 const downloadVideo = async (chatId, url, messageId) => {
     const waitingMsg = await bot.sendMessage(chatId, "🚀 Đang lấy video không logo...");
     try {
@@ -72,7 +80,7 @@ const downloadVideo = async (chatId, url, messageId) => {
             });
             await bot.deleteMessage(chatId, waitingMsg.message_id).catch(() => {});
         } else {
-            throw new Error("Không lấy được link video");
+            throw new Error();
         }
     } catch (e) {
         bot.editMessageText(`❌ Lỗi: Link không hợp lệ hoặc API bận.`, { 
@@ -86,6 +94,7 @@ bot.onText(/\/dl (.+)/, async (msg, match) => {
     await downloadVideo(msg.chat.id, match[1].trim(), msg.message_id);
 });
 
+// Tự động bắt link khi dán trực tiếp
 bot.on('message', async (msg) => {
     if (!msg.text || msg.text.startsWith('/')) return;
     const match = msg.text.match(/(https?:\/\/[^\s]+)/g);
