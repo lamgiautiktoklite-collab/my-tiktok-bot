@@ -4,10 +4,10 @@ const express = require('express');
 const countries = require("i18n-iso-countries");
 countries.registerLocale(require("i18n-iso-countries/langs/vi.json"));
 
-// --- 1. SETUP SERVER ---
+// --- 1. SETUP SERVER (Giúp bot sống trên host) ---
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Bot TikTok By Con Bò đang chạy...'));
+app.get('/', (req, res) => res.send('Bot TikTok By Con Bò đang live!'));
 app.listen(PORT, () => console.log(`Cổng ${PORT} đã mở.`));
 
 // --- 2. CẤU HÌNH BOT ---
@@ -18,12 +18,14 @@ const SIGNATURE = "\n\n[『 ᴍᴀᴋᴇ ʙʏ: ᴄᴏɴ ʙᴏ̀ (@ᴄʜᴜ𝟸ɴ
 const tempStore = new Map();
 
 const formatNumber = (num) => num ? num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,') : "0";
+
+// Đã sửa thành fromCodePoint để icon lá cờ hiển thị chuẩn
 const getFlag = (code) => {
     if (!code || code.length !== 2) return "🌍";
-    return code.toUpperCase().replace(/./g, char => String.fromPoint(char.charCodeAt(0) + 127397));
+    return code.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
 };
 
-// --- 3. HÀM XỬ LÝ TIKTOK ---
+// --- 3. HÀM XỬ LÝ TẢI VIDEO/ẢNH ---
 const handleTikTok = async (chatId, url, messageId, forceMode = 'auto') => {
     const loading = await bot.sendMessage(chatId, "⏳ Đang quét dữ liệu TikTok...");
     try {
@@ -31,7 +33,7 @@ const handleTikTok = async (chatId, url, messageId, forceMode = 'auto') => {
         const data = res.data.data;
         if (!data) throw new Error();
 
-        // Xử lý Slide Ảnh (/anh)
+        // Xử lý Slide Ảnh
         if (data.images && data.images.length > 0 && forceMode !== 'dl') {
             const total = data.images.length;
             const storeId = `img_${Date.now()}`;
@@ -55,7 +57,7 @@ const handleTikTok = async (chatId, url, messageId, forceMode = 'auto') => {
             return bot.deleteMessage(chatId, loading.message_id);
         }
 
-        // Xử lý Video (/dl)
+        // Xử lý Video
         if (data.play || data.wmplay) {
             await bot.sendVideo(chatId, data.play || data.wmplay, { 
                 caption: `✅ Video không logo của bạn!${SIGNATURE}`, 
@@ -71,20 +73,22 @@ const handleTikTok = async (chatId, url, messageId, forceMode = 'auto') => {
 
 // --- 4. HỆ THỐNG LỆNH ---
 
-// Lệnh /start với lời chào SỐ 3
+// Lời chào bạn vừa chọn
 bot.onText(/\/start/, (msg) => {
     const startMsg = `🐄 **BOT TIKTOK BY CON BÒ** 🐄\n\n` +
         `*"Cỏ xanh là của đồng hoang, TikTok chất lượng là vàng của tớ!"*\n\n` +
-        `Bạn chỉ việc lướt TikTok, còn lại cứ để Con Bò lo. Video, ảnh hay Profile? Tớ 'nhai' hết trong vòng một hơi thở! 🌾💎\n\n` +
-        `/tt [username] - Tra cứu thông tin Profile TikTok\n` +
-        `/dl [link] - Tải Video TikTok không logo\n` +
-        `/anh [link] - Tải Slide ảnh gốc (có nút chọn)\n\n` +
-        `✨ *Mẹo nhỏ: Cứ dán link vào thôi, tớ tự lo hết!*` + 
+        `Chào bạn nhé! Tớ là trợ lý **Con Bò** đây. Thay vì kêu "ùm bò" vô nghĩa, tớ ở đây để giúp bạn "vắt" sạch dữ liệu TikTok với tốc độ tên lửa. Bạn cần gì ở tớ nào?\n\n` +
+        `📥 **Tớ Có Thể Giúp Gì Cho Bạn?**\n` +
+        `🔹 **Tra cứu Profile:** Gõ \`/tt [username]\`. Tớ sẽ gửi lại ảnh đại diện nét căng kèm cái ID số chuẩn chỉnh để bạn làm việc.\n` +
+        `🔹 **Tải Video:** Gõ \`/dl [link]\`. Video sẽ về máy bạn sạch bóng logo, mướt mượt như cỏ non.\n` +
+        `🔹 **Lấy Slide ảnh:** Gõ \`/anh [link]\`. Tớ sẽ bày ra một dàn nút bấm, bạn thích tấm nào chọn tấm đó hoặc "hốt" cả ổ về luôn.\n\n` +
+        `✨ **Mẹo Nhỏ Cho Bạn:**\n` +
+        `Bạn không cần gõ lệnh dài dòng đâu, cứ dán thẳng cái link TikTok vào đây, tớ tự biết nó là video hay ảnh để xử lý giúp bạn ngay và luôn!` + 
         `${SIGNATURE}`;
     bot.sendMessage(msg.chat.id, startMsg, { parse_mode: 'Markdown', disable_web_page_preview: true });
 });
 
-// Lệnh /tt (ID Số & Avatar PNG nét)
+// Tra cứu Profile
 bot.onText(/\/tt (.+)/, async (msg, match) => {
     const username = match[1].replace('@', '').trim();
     const loading = await bot.sendMessage(msg.chat.id, `🔍 Tra cứu: @${username}...`);
@@ -109,13 +113,13 @@ bot.onText(/\/tt (.+)/, async (msg, match) => {
             await bot.sendPhoto(msg.chat.id, highResAvatar, { caption: cap, parse_mode: 'Markdown' });
             bot.deleteMessage(msg.chat.id, loading.message_id);
         } else { bot.editMessageText("❌ Không thấy user này.", { chat_id: msg.chat.id, message_id: loading.message_id }); }
-    } catch (e) { bot.editMessageText("⚠️ Lỗi tra cứu profile.", { chat_id: msg.chat.id, message_id: loading.message_id }); }
+    } catch (e) { bot.editMessageText("⚠️ Lỗi hệ thống.", { chat_id: msg.chat.id, message_id: loading.message_id }); }
 });
 
 bot.onText(/\/dl (.+)/, (msg, match) => handleTikTok(msg.chat.id, match[1].trim(), msg.message_id, 'dl'));
 bot.onText(/\/anh (.+)/, (msg, match) => handleTikTok(msg.chat.id, match[1].trim(), msg.message_id, 'anh'));
 
-// --- 5. CALLBACK QUERIES ---
+// --- 5. XỬ LÝ NÚT BẤM & TIN NHẮN TRỰC TIẾP ---
 bot.on('callback_query', async (query) => {
     const [action, storeId, index] = query.data.split('_');
     const images = tempStore.get(storeId);
@@ -133,7 +137,6 @@ bot.on('callback_query', async (query) => {
     bot.answerCallbackQuery(query.id);
 });
 
-// NHẬN DIỆN LINK TRỰC TIẾP
 bot.on('message', (msg) => {
     if (msg.text && !msg.text.startsWith('/') && msg.text.includes('tiktok.com')) {
         const link = msg.text.match(/(https?:\/\/[^\s]+)/g);
